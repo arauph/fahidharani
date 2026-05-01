@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
+  <title>Credit Management</title>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="icon" href="icon.svg"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --blue:#1a73e8;--blue-dark:#1558b0;--blue-darker:#0d3b78;--blue-light:#e8f0fe;
+      --red:#d93025;--red-light:#fce8e6;--red-bg:#fff5f5;
+      --green:#1e8e3e;--green-light:#e6f4ea;--amber:#e37400;--amber-light:#fef3e2;
+      --gray-bg:#f8f9fa;--gray-border:#dadce0;--gray-text:#5f6368;--text:#202124;
+      --shadow-sm:0 1px 3px rgba(0,0,0,.12);--shadow-md:0 4px 12px rgba(0,0,0,.15);
+      --radius:10px;--radius-sm:6px
+    }
+    body{font-family:'Google Sans','Segoe UI',sans-serif;background:var(--gray-bg);color:var(--text);min-height:100vh}
+    .loader{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--blue)}
+    .loader-ring{width:48px;height:48px;border:4px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .9s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── AUTH ── */
+    #auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(160deg,#0d3b78 0%,#1a73e8 60%,#4a90e2 100%)}
+    .auth-card{background:#fff;border-radius:16px;padding:32px 28px;width:100%;max-width:380px;box-shadow:var(--shadow-md)}
+    .auth-logo{text-align:center;margin-bottom:28px}
+    .auth-logo h1{font-size:20px;font-weight:700;color:var(--blue);margin-top:10px}
+    .auth-logo p{font-size:12px;color:var(--gray-text);margin-top:3px}
+    .field{margin-bottom:14px}
+    .field label{font-size:12px;color:var(--gray-text);display:block;margin-bottom:5px;font-weight:500}
+    .field input,.field select{width:100%;border:1px solid var(--gray-border);border-radius:var(--radius-sm);padding:10px 12px;font-size:14px;color:var(--text);outline:none;transition:border .2s;font-family:inherit;background:#fff}
+    .field input:focus,.field select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,115,232,.15)}
+    .btn-primary{width:100%;background:var(--blue);color:#fff;border:none;border-radius:var(--radius-sm);padding:12px;font-size:15px;font-weight:500;cursor:pointer;transition:background .2s;font-family:inherit}
+    .btn-primary:hover{background:var(--blue-dark)}
+    .auth-error{font-size:12px;color:var(--red);margin-top:10px;text-align:center;min-height:18px}
+
+    /* ── APP ── */
+    #app-screen{display:none;flex-direction:column;min-height:100vh}
+    .header{background:var(--blue);color:#fff;padding:0 16px;height:56px;display:flex;align-items:center;position:sticky;top:0;z-index:100;box-shadow:var(--shadow-sm);gap:10px}
+    .header-logo{font-size:16px;font-weight:700;flex:1;line-height:1.2}
+    .header-biz{font-size:10px;opacity:.8;display:block}
+    .user-btn{width:32px;height:32px;border-radius:50%;border:2px solid rgba(255,255,255,.6);background:var(--blue-dark);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;position:relative}
+    .user-menu{display:none;position:absolute;top:42px;right:0;background:#fff;border:1px solid var(--gray-border);border-radius:var(--radius);padding:8px 0;min-width:210px;box-shadow:var(--shadow-md);z-index:999}
+    .user-menu.open{display:block}
+    .umi{padding:10px 16px;font-size:14px;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:8px}
+    .umi:hover{background:var(--gray-bg)}
+    .umi.danger{color:var(--red)}
+    .umi.info{font-size:11px;color:var(--gray-text);cursor:default;border-bottom:1px solid var(--gray-border);margin-bottom:4px;padding-bottom:10px}
+    .umi.info:hover{background:none}
+
+    /* ── TABS ── */
+    .tab-bar{display:flex;background:#fff;border-bottom:1px solid var(--gray-border);position:sticky;top:56px;z-index:99;overflow-x:auto}
+    .tab-bar::-webkit-scrollbar{display:none}
+    .tab{flex:1;min-width:52px;padding:8px 2px;font-size:9.5px;text-align:center;color:var(--gray-text);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:all .15s;font-family:inherit;white-space:nowrap}
+    .tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+    .tab-icon{font-size:15px;display:block;margin-bottom:2px}
+
+    /* ── SECTIONS ── */
+    .section{display:none;padding:12px;padding-bottom:90px}
+    .section.active{display:block}
+
+    /* ── CARDS ── */
+    .card{background:#fff;border:1px solid var(--gray-border);border-radius:var(--radius);padding:14px;margin-bottom:12px;box-shadow:var(--shadow-sm)}
+    .card-title{font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+    .avatar{width:40px;height:40px;border-radius:50%;background:var(--blue-light);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:var(--blue-darker);flex-shrink:0}
+    .balance-chip{font-size:12px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
+    .balance-chip.owed{background:var(--red-light);color:var(--red)}
+    .balance-chip.clear{background:var(--green-light);color:var(--green)}
+    .action-btns{display:flex;gap:5px;margin-top:10px;flex-wrap:wrap}
+
+    /* ── BUTTONS ── */
+    .btn{border:1px solid var(--gray-border);background:#fff;border-radius:var(--radius-sm);padding:6px 10px;font-size:11px;cursor:pointer;color:var(--text);font-family:inherit;transition:all .15s}
+    .btn:hover{background:var(--gray-bg)}
+    .btn.blue{background:var(--blue);color:#fff;border-color:var(--blue)}
+    .btn.blue:hover{background:var(--blue-dark)}
+    .btn.red{color:var(--red);border-color:var(--red-light)}
+    .btn.red:hover{background:var(--red-light)}
+    .btn.amber{color:var(--amber);border-color:var(--amber-light)}
+    .btn.amber:hover{background:var(--amber-light)}
+    .btn.full{width:100%;padding:11px;font-size:14px;font-weight:500}
+
+    /* ── FORMS ── */
+    .form-group{margin-bottom:12px}
+    .form-group label{font-size:12px;color:var(--gray-text);display:block;margin-bottom:4px;font-weight:500}
+    .form-group input,.form-group textarea,.form-group select{width:100%;border:1px solid var(--gray-border);border-radius:var(--radius-sm);padding:9px 12px;font-size:14px;background:#fff;color:var(--text);font-family:inherit;outline:none;transition:border .2s}
+    .form-group input:focus,.form-group textarea:focus,.form-group select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,115,232,.12)}
+    .form-group textarea{resize:vertical;min-height:80px}
+
+    /* ── PAYMENT METHOD ── */
+    .pm-label{font-size:12px;color:var(--gray-text);display:block;margin-bottom:8px;font-weight:500}
+    .pm-options{display:flex;gap:8px;margin-bottom:4px}
+    .pm-btn{flex:1;border:1px solid var(--gray-border);background:#fff;border-radius:var(--radius-sm);padding:10px 4px;cursor:pointer;text-align:center;transition:all .18s;font-family:inherit}
+    .pm-btn:hover{background:var(--blue-light)}
+    .pm-btn.selected{border:2px solid var(--blue);background:var(--blue-light)}
+    .pm-icon{font-size:18px;display:block;margin-bottom:3px}
+    .pm-name{font-size:11px;font-weight:600;color:var(--text)}
+    .pm-btn.selected .pm-name{color:var(--blue-darker)}
+    .pm-error{font-size:11px;color:var(--red);margin-top:4px;display:none}
+
+    /* ── BADGES ── */
+    .badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600}
+    .badge.credit{background:var(--red-light);color:var(--red)}
+    .badge.payment{background:var(--green-light);color:var(--green)}
+    .badge.method{background:var(--blue-light);color:var(--blue-darker);margin-left:3px}
+    .badge.alert{background:#fef3e2;color:#b45309}
+    .badge.nickname{background:#f3e8ff;color:#7c3aed;margin-left:3px}
+
+    /* ── TRANSACTIONS ── */
+    .txn-row{padding:9px 0;border-bottom:1px solid var(--gray-border);display:flex;justify-content:space-between;align-items:flex-start}
+    .txn-row:last-child{border-bottom:none}
+    .txn-meta{font-size:10px;color:var(--gray-text);margin-top:2px}
+    .txn-remark{font-size:10px;color:var(--gray-text);margin-top:2px;font-style:italic}
+    .txn-amount{font-size:13px;font-weight:700}
+    .txn-amount.credit{color:var(--red)}
+    .txn-amount.payment{color:var(--green)}
+
+    /* ── METRICS ── */
+    .metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+    .metric-card{background:#fff;border:1px solid var(--gray-border);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow-sm)}
+    .metric-label{font-size:11px;color:var(--gray-text);margin-bottom:4px;font-weight:500}
+    .metric-value{font-size:18px;font-weight:700}
+
+    /* ── MODAL ── */
+    .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center}
+    .modal-overlay.open{display:flex}
+    .modal{background:#fff;border-radius:16px 16px 0 0;padding:20px 16px 32px;width:100%;max-width:420px;max-height:92vh;overflow-y:auto}
+    .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+    .modal-title{font-size:16px;font-weight:700}
+    .close-btn{border:none;background:none;font-size:22px;cursor:pointer;color:var(--gray-text);line-height:1}
+
+    /* ── FAB ── */
+    .fab{position:fixed;bottom:22px;right:16px;width:52px;height:52px;border-radius:50%;background:var(--blue);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:150;box-shadow:0 4px 14px rgba(26,115,232,.4)}
+    .fab svg{stroke:#fff}
+
+    /* ── SEARCH ── */
+    .search-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px;background:#fff;border:1px solid var(--gray-border);border-radius:var(--radius);padding:8px 12px;box-shadow:var(--shadow-sm)}
+    .search-bar input{border:none;background:none;font-size:14px;color:var(--text);width:100%;font-family:inherit;outline:none}
+
+    /* ── MISC ── */
+    .empty-state{text-align:center;padding:36px 20px;color:var(--gray-text);font-size:13px}
+    .empty-icon{font-size:36px;margin-bottom:8px}
+    .msg-preview{background:var(--blue-light);border-radius:var(--radius-sm);padding:12px;font-size:12px;color:var(--blue-darker);white-space:pre-line;line-height:1.6}
+    .info-box{background:var(--blue-light);border-radius:var(--radius-sm);padding:11px;font-size:12px;color:var(--blue-darker);line-height:1.6;margin-top:8px}
+    .success-msg{display:none;text-align:center;font-size:13px;color:var(--green);margin-top:10px;font-weight:500}
+    .err-msg{font-size:12px;color:var(--red);margin-top:6px;min-height:16px}
+    .share-btns{display:flex;gap:8px;flex-wrap:wrap}
+    .share-btn{flex:1;min-width:70px;border:1px solid var(--gray-border);background:#fff;border-radius:var(--radius-sm);padding:8px 4px;cursor:pointer;text-align:center;font-family:inherit;font-size:11px;font-weight:600;color:var(--text)}
+    .share-btn:hover{background:var(--gray-bg)}
+    .share-btn .s-icon{font-size:18px;display:block;margin-bottom:3px}
+    .user-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--gray-border)}
+    .user-row:last-child{border-bottom:none}
+    .section-tabs{display:flex;gap:4px;margin-bottom:14px;background:var(--gray-bg);border-radius:var(--radius-sm);padding:4px}
+    .section-tab{flex:1;padding:7px;font-size:12px;font-weight:500;text-align:center;border:none;background:none;cursor:pointer;border-radius:6px;color:var(--gray-text);font-family:inherit}
+    .section-tab.active{background:#fff;color:var(--blue);box-shadow:var(--shadow-sm)}
+    .alert-banner{background:#fef3e2;border:1px solid #fcd34d;border-radius:var(--radius-sm);padding:7px 10px;font-size:11px;font-weight:600;color:#92400e;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+    .overdue-banner{background:var(--red-light);border:1px solid #fca5a5;border-radius:var(--radius-sm);padding:7px 10px;font-size:11px;font-weight:600;color:var(--red);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+    .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-border)}
+    .toggle-row:last-child{border-bottom:none}
+    .toggle{width:42px;height:24px;background:var(--gray-border);border-radius:12px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;border:none}
+    .toggle.on{background:var(--blue)}
+    .toggle::after{content:'';position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:3px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+    .toggle.on::after{left:21px}
+  </style>
+</head>
+<body>
+
+<div class="loader" id="loader"><div class="loader-ring"></div></div>
+
+<!-- AUTH -->
+<div id="auth-screen" style="display:none;">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <svg viewBox="0 0 56 56" fill="none" width="52" height="52">
+        <rect width="56" height="56" rx="14" fill="#1a73e8"/>
+        <text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" font-size="24" font-weight="bold" fill="white" font-family="sans-serif">CM</text>
+      </svg>
+      <h1>Credit Management</h1>
+      <p>Business credit tracking system</p>
+    </div>
+    <div class="field" id="biz-field" style="display:none;">
+      <label>Business</label>
+      <select id="login-biz"></select>
+    </div>
+    <div class="field">
+      <label>User ID</label>
+      <input type="text" id="login-userid" placeholder="Enter your user ID" autocomplete="username" autocapitalize="none" autocorrect="off"/>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <button class="btn-primary" onclick="doLogin()">Sign In</button>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen">
+  <div class="header" style="justify-content:space-between;">
+    <div style="flex:1;min-width:0;">
+      <div class="header-logo">Credit Management</div>
+      <span class="header-biz" id="header-biz"></span>
+    </div>
+    <div style="position:relative;flex-shrink:0;margin-left:12px;">
+      <div class="user-btn" id="user-btn" onclick="toggleUserMenu()">?</div>
+      <div class="user-menu" id="user-menu">
+        <div class="umi info" id="user-info-item"></div>
+        <div class="umi danger" onclick="doSignOut()">🚪 Sign Out</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-bar" id="main-tab-bar">
+    <button class="tab active" onclick="showTab('customers',this)"><span class="tab-icon">👥</span>Customers</button>
+    <button class="tab" onclick="showTab('add-credit',this)"><span class="tab-icon">💳</span>Credit</button>
+    <button class="tab" onclick="showTab('payment',this)"><span class="tab-icon">✅</span>Payment</button>
+    <button class="tab" onclick="showTab('share',this)"><span class="tab-icon">📤</span>Share</button>
+    <button class="tab" id="admin-tab" style="display:none;" onclick="showTab('admin',this)"><span class="tab-icon">🔑</span>Admin</button>
+  </div>
+
+  <!-- CUSTOMERS -->
+  <div class="section active" id="sec-customers">
+    <div class="search-bar">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5f6368" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="customer-search" placeholder="Search name, nickname or phone..." oninput="renderCustomers(this.value)">
+    </div>
+    <div id="customer-list"></div>
+  </div>
+
+  <!-- CREDIT -->
+  <div class="section" id="sec-add-credit">
+    <div class="card">
+      <div class="card-title">💳 Add Credit Entry</div>
+      <div class="form-group">
+        <label>Customer *</label>
+        <select id="credit-customer-sel" onchange="updateCreditBalance()"><option value="">— select customer —</option></select>
+      </div>
+      <div id="credit-alert-warn" style="display:none;" class="alert-banner">⚠️ This customer is marked NO CREDIT. Proceed with caution.</div>
+      <div id="credit-current-bal" style="display:none;margin-bottom:10px;font-size:12px;color:var(--red);font-weight:500;"></div>
+      <div class="form-group"><label>Amount (MVR) *</label><input type="number" id="credit-amount" placeholder="0.00" min="0" step="0.01"></div>
+      <div class="form-group"><label>Date</label><input type="date" id="credit-date"></div>
+      <div class="form-group"><label>Remarks (optional)</label><textarea id="credit-remarks"></textarea></div>
+      <button class="btn blue full" onclick="submitCredit()">Add Credit Entry</button>
+    </div>
+  </div>
+
+  <!-- PAYMENT -->
+  <div class="section" id="sec-payment">
+    <div class="card">
+      <div class="card-title">✅ Record Payment</div>
+      <div class="form-group">
+        <label>Customer *</label>
+        <select id="pay-customer-sel" onchange="updatePayBalance()"><option value="">— select customer —</option></select>
+      </div>
+      <div id="pay-current-bal" style="display:none;margin-bottom:10px;font-size:12px;color:var(--red);font-weight:500;"></div>
+      <div class="form-group"><label>Amount Paid (MVR) *</label><input type="number" id="pay-amount" placeholder="0.00" min="0" step="0.01"></div>
+      <div class="form-group"><label>Date</label><input type="date" id="pay-date"></div>
+      <div style="margin-bottom:14px;">
+        <span class="pm-label">Payment Method *</span>
+        <div class="pm-options">
+          <button type="button" class="pm-btn" id="pm-cash" onclick="selectMethod('cash')"><span class="pm-icon">💵</span><span class="pm-name">Cash</span></button>
+          <button type="button" class="pm-btn" id="pm-transfer" onclick="selectMethod('transfer')"><span class="pm-icon">🏦</span><span class="pm-name">Transfer</span></button>
+          <button type="button" class="pm-btn" id="pm-qr" onclick="selectMethod('qr')"><span class="pm-icon">📲</span><span class="pm-name">QR Pay</span></button>
+        </div>
+        <div class="pm-error" id="pm-error">Please select a payment method.</div>
+      </div>
+      <div class="form-group"><label>Remarks (optional)</label><textarea id="pay-remarks"></textarea></div>
+      <button class="btn blue full" onclick="submitPayment()">Record Payment</button>
+    </div>
+  </div>
+
+  <!-- SHARE -->
+  <div class="section" id="sec-share">
+    <div class="card">
+      <div class="card-title">📤 Payment Reminders</div>
+      <div style="font-size:12px;color:var(--gray-text);margin-bottom:8px;" id="share-summary"></div>
+      <div class="msg-preview" id="share-preview" style="margin-bottom:0;"></div>
+    </div>
+    <div id="share-customer-list"></div>
+  </div>
+
+  <!-- ADMIN -->
+  <div class="section" id="sec-admin">
+    <div class="section-tabs">
+      <button class="section-tab active" onclick="switchAdminTab('users',this)">👤 Users</button>
+      <button class="section-tab" onclick="switchAdminTab('outlets',this)">🏪 Outlets</button>
+      <button class="section-tab" onclick="switchAdminTab('reports',this)">📊 Reports</button>
+      <button class="section-tab" onclick="switchAdminTab('settings',this)">⚙️ Settings</button>
+    </div>
+
+    <!-- USERS sub-tab -->
+    <div id="admin-users">
+      <div class="card">
+        <div class="card-title">🔑 Create New User</div>
+        <div class="form-group"><label>Full Name *</label><input type="text" id="nu-name" placeholder="User full name"></div>
+        <div class="form-group">
+          <label>User ID * <span style="font-size:10px;color:var(--gray-text);font-weight:400;">(no spaces, letters/numbers only)</span></label>
+          <input type="text" id="nu-userid" placeholder="e.g. ahmed01" autocapitalize="none" autocorrect="off" spellcheck="false">
+        </div>
+        <div class="form-group"><label>Password *</label><input type="password" id="nu-pass" placeholder="Min 6 characters"></div>
+        <div class="form-group">
+          <label>Assign to Outlet *</label>
+          <select id="nu-biz"><option value="">— select outlet —</option></select>
+        </div>
+        <button class="btn blue full" onclick="createUser()">Create User</button>
+        <div class="success-msg" id="nu-success"></div>
+        <div class="err-msg" id="nu-error"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">👥 All Users</div>
+        <div id="user-list"><div class="empty-state" style="padding:16px 0"><p>Loading...</p></div></div>
+      </div>
+    </div>
+
+    <!-- BUSINESSES sub-tab -->
+    <div id="admin-outlets" style="display:none;">
+      <div class="card">
+        <div class="card-title">🏪 Create Outlet</div>
+        <div class="form-group"><label>Outlet Name *</label><input type="text" id="biz-name" placeholder="e.g. Mikado Lounge"></div>
+        <div class="form-group"><label>Outlet Color *</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;" id="color-picker">
+          <button type="button" class="color-opt selected" data-color="#1a73e8" onclick="pickColor(this)" style="background:#1a73e8;width:36px;height:36px;border-radius:50%;border:3px solid #0d3b78;cursor:pointer;" title="Blue"></button>
+          <button type="button" class="color-opt" data-color="#1e8e3e" onclick="pickColor(this)" style="background:#1e8e3e;width:36px;height:36px;border-radius:50%;border:3px solid transparent;cursor:pointer;" title="Green"></button>
+          <button type="button" class="color-opt" data-color="#d93025" onclick="pickColor(this)" style="background:#d93025;width:36px;height:36px;border-radius:50%;border:3px solid transparent;cursor:pointer;" title="Red"></button>
+          <button type="button" class="color-opt" data-color="#e37400" onclick="pickColor(this)" style="background:#e37400;width:36px;height:36px;border-radius:50%;border:3px solid transparent;cursor:pointer;" title="Orange"></button>
+          <button type="button" class="color-opt" data-color="#7c3aed" onclick="pickColor(this)" style="background:#7c3aed;width:36px;height:36px;border-radius:50%;border:3px solid transparent;cursor:pointer;" title="Purple"></button>
+          <button type="button" class="color-opt" data-color="#0891b2" onclick="pickColor(this)" style="background:#0891b2;width:36px;height:36px;border-radius:50%;border:3px solid transparent;cursor:pointer;" title="Teal"></button>
+          <button type="button" class="color-opt" data-color="#be185d" onclick="pickColor(this)" style="background:#be185d;width:36px;height:36px;border-radius:50%;border:3px solid transparent;cursor:pointer;" title="Pink"></button>
+          <button type="button" class="color-opt" data-color="#374151" onclick="pickColor(this)" style="background:#374151;width:36px;height:36px;border-radius:50%;border:3px solid transparent;cursor:pointer;" title="Gray"></button>
+        </div>
+        <input type="hidden" id="biz-color" value="#1a73e8"></div>
+        <button class="btn blue full" onclick="createOutlet()">Create Outlet</button>
+        <div class="success-msg" id="biz-success"></div>
+        <div class="err-msg" id="biz-error"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📋 All Outlets</div>
+        <div id="biz-list"><div class="empty-state" style="padding:16px 0"><p>Loading...</p></div></div>
+      </div>
+    </div>
+
+    <!-- REPORTS sub-tab (admin only) -->
+    <div id="admin-reports" style="display:none;">
+      <div class="card" style="padding:12px 14px;margin-bottom:12px;">
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+          <div style="flex:1;min-width:120px;">
+            <div style="font-size:11px;color:var(--gray-text);margin-bottom:4px;font-weight:500;">From</div>
+            <input type="date" id="report-from" style="width:100%;border:1px solid var(--gray-border);border-radius:var(--radius-sm);padding:7px 10px;font-size:13px;font-family:inherit;outline:none;">
+          </div>
+          <div style="flex:1;min-width:120px;">
+            <div style="font-size:11px;color:var(--gray-text);margin-bottom:4px;font-weight:500;">To</div>
+            <input type="date" id="report-to" style="width:100%;border:1px solid var(--gray-border);border-radius:var(--radius-sm);padding:7px 10px;font-size:13px;font-family:inherit;outline:none;">
+          </div>
+          <button class="btn blue" style="padding:8px 14px;font-size:12px;" onclick="renderReports()">Filter</button>
+          <button class="btn" style="padding:8px 10px;font-size:12px;" onclick="clearDateFilter()">Clear</button>
+        </div>
+      </div>
+      <div class="metric-grid" id="summary-grid"></div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <button class="btn blue" style="flex:1;padding:10px;" onclick="exportExcel()">📄 Excel</button>
+        <button class="btn" style="flex:1;padding:10px;" onclick="exportPDF()">🖨️ PDF</button>
+      </div>
+      <div id="report-list"></div>
+    </div>
+
+    <!-- SETTINGS sub-tab -->
+    <div id="admin-settings" style="display:none;">
+      <div class="card">
+        <div class="card-title">✉️ Message Template</div>
+        <div class="form-group">
+          <label>Default reminder message</label>
+          <div style="font-size:11px;color:var(--gray-text);margin-bottom:6px;">Use <strong>{name}</strong> for customer name, <strong>{balance}</strong> for amount, <strong>{date}</strong> for date.</div>
+          <textarea id="msg-template" style="min-height:140px;font-size:13px;"></textarea>
+        </div>
+        <button class="btn blue full" onclick="saveMsgTemplate()">💾 Save as Default</button>
+        <div class="success-msg" id="msg-template-ok">✓ Message template saved!</div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚙️ App Settings</div>
+        <div class="toggle-row">
+          <div>
+            <div style="font-size:14px;font-weight:500;">Overdue Alerts</div>
+            <div style="font-size:12px;color:var(--gray-text);">Red card after 10th if prev month unpaid</div>
+          </div>
+          <button class="toggle on" id="toggle-overdue" onclick="toggleSetting('overdue',this)"></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fab" style="display:none;" onclick="openNewCustomer()">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<!-- MODAL: New/Edit Customer -->
+<div class="modal-overlay" id="modal-nc">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title" id="nc-modal-title">New Customer</div><button class="close-btn" onclick="closeModal('modal-nc')">×</button></div>
+    <div class="form-group"><label>Full Name *</label><input type="text" id="nc-name"></div>
+    <div class="form-group"><label>Nickname (optional)</label><input type="text" id="nc-nickname" placeholder="Short name for search/reports"></div>
+    <div class="form-group"><label>Mobile * <span style="font-size:10px;color:var(--gray-text);">Required</span></label><input type="tel" id="nc-phone" placeholder="+960 ..."></div>
+    <div class="form-group"><label>Remarks (optional)</label><textarea id="nc-remarks"></textarea></div>
+    <input type="hidden" id="nc-edit-id">
+    <button class="btn blue full" id="nc-save-btn" onclick="saveCustomer()">Save Customer</button>
+  </div>
+</div>
+
+<!-- MODAL: Transaction History -->
+<div class="modal-overlay" id="modal-hist">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="hist-name">Transactions</div>
+        <div id="hist-nickname" style="font-size:12px;color:var(--gray-text);margin-top:2px;"></div>
+      </div>
+      <button class="close-btn" onclick="closeModal('modal-hist')">×</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button class="btn blue" style="flex:1;padding:8px;font-size:12px;" onclick="exportCustomerPDF()">🖨️ PDF Statement</button>
+    </div>
+    <div id="hist-body"></div>
+  </div>
+</div>
+
+<!-- MODAL: Share -->
+<div class="modal-overlay" id="modal-share">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="share-title">Send Reminder</div>
+      <button class="close-btn" onclick="closeModal('modal-share')">×</button>
+    </div>
+    <div class="msg-preview" id="share-msg-preview" style="margin-bottom:14px;"></div>
+    <div class="share-btns" id="share-btns-container"></div>
+    <div class="success-msg" id="copy-ok" style="margin-top:8px;">✓ Copied!</div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+         createUserWithEmailAndPassword, signOut as fbSignOut, updateProfile }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs,
+         deleteDoc, updateDoc, query, orderBy, onSnapshot, where }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey:            "AIzaSyABHCR4mhM3YycvwDdaLX6UJzn26uGXG8Q",
+  authDomain:        "mikadocredit.firebaseapp.com",
+  projectId:         "mikadocredit",
+  storageBucket:     "mikadocredit.firebasestorage.app",
+  messagingSenderId: "854839300876",
+  appId:             "1:854839300876:web:bc8a04e5bea2f52f7baf29"
+};
+
+const fbApp  = initializeApp(firebaseConfig);
+const fbApp2 = initializeApp(firebaseConfig, 'secondary');
+const auth   = getAuth(fbApp);
+const auth2  = getAuth(fbApp2);
+const db     = getFirestore(fbApp);
+
+const ADMIN_USERID = "admin";
+const ADMIN_EMAIL  = "ahmedrauph@gmail.com";
+
+// ── COLLECTIONS ──
+const C = {
+  customers:   ()=> collection(db,'customers'),
+  transactions:()=> collection(db,'transactions'),
+  usernames:   ()=> collection(db,'usernames'),
+  appUsers:    ()=> collection(db,'appUsers'),
+  businesses:  ()=> collection(db,'businesses'),
+  settings:    ()=> collection(db,'settings'),
+};
+
+// ── STATE ──
+let currentUser=null, isAdmin=false, currentUserId='', currentUserName='';
+let currentBizId='', currentBizName='', currentBizColor='';
+let customers=[], transactions=[], businesses=[];
+let selectedMethod=null, currentShareCustomer=null, currentHistCustomer=null;
+let unsubC=null, unsubT=null;
+let msgTemplate='', settings={overdue:true};
+
+// ── HELPERS ──
+const fmt   = n  => 'MVR '+Math.abs(n).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+const today = () => new Date().toISOString().slice(0,10);
+const ini   = n  => n.trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,2);
+const bal   = id => transactions.filter(t=>t.cid===id).reduce((s,t)=>s+(t.type==='credit'?t.amount:-t.amount),0);
+const ML    = {cash:'Cash',transfer:'Account Transfer',qr:'QR Pay'};
+
+// ── AUTH ──
+onAuthStateChanged(auth, user=>{
+  document.getElementById('loader').style.display='none';
+  if(user){ currentUser=user; isAdmin=user.email.toLowerCase()===ADMIN_EMAIL.toLowerCase(); showApp(user); }
+  else{ currentUser=null; isAdmin=false; currentUserId=''; currentUserName=''; showAuth(); }
+});
+
+function showAuth(){
+  document.getElementById('auth-screen').style.display='flex';
+  document.getElementById('app-screen').style.display='none';
+  document.getElementById('fab').style.display='none';
+  if(unsubC){unsubC();unsubC=null;}
+  if(unsubT){unsubT();unsubT=null;}
+  loadBusinessesForLogin();
+}
+
+async function loadBusinessesForLogin(){
+  try{
+    const snap=await getDocs(C.businesses());
+    businesses=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const sel=document.getElementById('login-biz');
+    if(businesses.length>1){
+      sel.innerHTML=businesses.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
+      document.getElementById('biz-field').style.display='block';
+    } else if(businesses.length===1){
+      currentBizId=businesses[0].id;
+      currentBizName=businesses[0].name;
+      document.getElementById('biz-field').style.display='none';
+    }
+  }catch(e){}
+}
+
+async function showApp(user){
+  // Load businesses first so color can be applied
+  try{ const s=await getDocs(C.businesses()); businesses=s.docs.map(d=>({id:d.id,...d.data()})); }catch(e){}
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('app-screen').style.display='flex';
+  document.getElementById('app-screen').style.flexDirection='column';
+  document.getElementById('fab').style.display='flex';
+  const label=currentUserId||user.displayName||'User';
+  document.getElementById('user-btn').textContent=label[0].toUpperCase();
+  document.getElementById('user-info-item').textContent=(isAdmin?'🔑 Admin · ':'👤 ')+(currentUserName||label);
+  document.getElementById('admin-tab').style.display=isAdmin?'block':'none';
+  document.getElementById('header-biz').textContent=isAdmin?'All Outlets':(currentBizName||'⚠️ No outlet assigned');
+  // Apply outlet color to header
+  const outletColor = businesses.find(b=>b.id===currentBizId)?.color || '#1a73e8';
+  document.querySelector('.header').style.background = isAdmin ? '#1a73e8' : outletColor;
+  document.querySelector('.fab').style.background = isAdmin ? '#1a73e8' : outletColor;
+  // Set CSS variable for accent color
+  document.documentElement.style.setProperty('--blue', isAdmin ? '#1a73e8' : outletColor);
+  document.documentElement.style.setProperty('--blue-dark', isAdmin ? '#1558b0' : outletColor+'cc');
+  await loadSettings();
+  subscribeData();
+  if(isAdmin){loadUserList();loadOutletList();loadBizSelects();populateMsgTemplate();}
+}
+
+// ── SETTINGS ──
+async function loadSettings(){
+  try{
+    const snap=await getDoc(doc(db,'settings','app'));
+    if(snap.exists()){
+      const d=snap.data();
+      settings.overdue=d.overdue!==false;
+      msgTemplate=d.msgTemplate||defaultMsg();
+    } else { msgTemplate=defaultMsg(); }
+    const tog=document.getElementById('toggle-overdue');
+    if(tog){ tog.className='toggle'+(settings.overdue?' on':''); }
+  }catch(e){ msgTemplate=defaultMsg(); }
+}
+
+function defaultMsg(){
+  return `Dear {name},\n\nThis is a friendly reminder that you have an outstanding balance of {balance} as of {date}.\n\nPlease settle at your earliest convenience.\n\nAccount Number: 7730000601088\nAccount Name: MIKADO LAUNGE\n\nThank you!\nTeam Mikado`;
+}
+
+function populateMsgTemplate(){
+  const el=document.getElementById('msg-template');
+  if(el) el.value=msgTemplate||defaultMsg();
+}
+
+window.saveMsgTemplate=async()=>{
+  const val=document.getElementById('msg-template').value.trim();
+  if(!val)return;
+  msgTemplate=val;
+  await setDoc(doc(db,'settings','app'),{msgTemplate:val,overdue:settings.overdue},{merge:true});
+  const ok=document.getElementById('msg-template-ok');
+  ok.style.display='block';setTimeout(()=>ok.style.display='none',3000);
+};
+
+window.toggleSetting=async(key,el)=>{
+  settings[key]=!settings[key];
+  el.className='toggle'+(settings[key]?' on':'');
+  await setDoc(doc(db,'settings','app'),{[key]:settings[key],msgTemplate},{merge:true});
+};
+
+// ── USERNAME LOOKUP ──
+async function lookupEmail(userId){
+  const uid=userId.toLowerCase().trim();
+  if(uid===ADMIN_USERID){ currentUserName='Admin'; return ADMIN_EMAIL; }
+  try{
+    const snap=await getDocs(query(C.usernames(),where('userId','==',uid)));
+    if(snap.empty)return null;
+    const d=snap.docs[0].data();
+    currentUserName=d.name||uid;
+    currentBizId=d.bizId||'';
+    currentBizName=d.bizName||'';
+    currentBizColor=d.bizColor||'';
+    return d.email;
+  }catch(e){ throw new Error('lookup_failed'); }
+}
+
+// ── SIGN IN ──
+window.doLogin=async()=>{
+  const errEl=document.getElementById('auth-error');
+  errEl.textContent='';
+  const userId=document.getElementById('login-userid').value.trim();
+  const pass=document.getElementById('login-pass').value;
+  const bizSel=document.getElementById('login-biz');
+  if(!userId||!pass){errEl.textContent='Please enter User ID and password.';return;}
+  errEl.textContent='Signing in...';
+  try{
+    if(businesses.length>1&&bizSel.value){ currentBizId=bizSel.value; currentBizName=businesses.find(b=>b.id===bizSel.value)?.name||''; }
+    const email=await lookupEmail(userId);
+    if(!email){errEl.textContent=`User ID "${userId}" not found.`;return;}
+    currentUserId=userId.toLowerCase().trim();
+    await signInWithEmailAndPassword(auth,email,pass);
+    errEl.textContent='';
+  }catch(e){
+    if(e.message==='lookup_failed')errEl.textContent='Cannot connect. Check internet.';
+    else if(e.code==='auth/invalid-credential'||e.code==='auth/wrong-password')errEl.textContent='Incorrect password.';
+    else errEl.textContent='Error: '+(e.code||e.message);
+  }
+};
+
+window.doSignOut=async()=>{ document.getElementById('user-menu').classList.remove('open'); await fbSignOut(auth); };
+window.toggleUserMenu=()=>document.getElementById('user-menu').classList.toggle('open');
+document.addEventListener('click',e=>{ if(!e.target.closest('#user-btn')&&!e.target.closest('#user-menu')) document.getElementById('user-menu').classList.remove('open'); });
+
+// ── SUBSCRIBE DATA (shared, filtered by biz if set) ──
+function subscribeData(){
+  // Admin sees ALL data; regular users ONLY see their outlet's data
+  let custQ, txnQ;
+  if(isAdmin){
+    custQ=query(C.customers(),orderBy('name'));
+    txnQ=query(C.transactions(),orderBy('date','desc'));
+  } else if(currentBizId){
+    custQ=query(C.customers(),where('bizId','==',currentBizId),orderBy('name'));
+    txnQ=query(C.transactions(),where('bizId','==',currentBizId),orderBy('date','desc'));
+  } else {
+    // User has no outlet assigned — show nothing (force admin to assign)
+    custQ=query(C.customers(),where('bizId','==','__none__'));
+    txnQ=query(C.transactions(),where('bizId','==','__none__'));
+  }
+  unsubC=onSnapshot(custQ,snap=>{
+    customers=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderCustomers(document.getElementById('customer-search').value||'');
+    updateSub(); refreshSelects();
+    if(document.getElementById('sec-admin')?.classList.contains('active')) renderReports();
+    if(document.getElementById('sec-share')?.classList.contains('active')) renderShare();
+  });
+  unsubT=onSnapshot(txnQ,snap=>{
+    transactions=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderCustomers(document.getElementById('customer-search').value||'');
+    updateSub();
+    if(document.getElementById('sec-admin')?.classList.contains('active')) renderReports();
+    if(document.getElementById('sec-share')?.classList.contains('active')) renderShare();
+  });
+}
+
+// ── ADMIN: BUSINESSES ──
+window.pickColor=(el)=>{
+  document.querySelectorAll('.color-opt').forEach(b=>b.style.border='3px solid transparent');
+  el.style.border='3px solid #000';
+  document.getElementById('biz-color').value=el.dataset.color;
+};
+
+window.createOutlet=async()=>{
+  const nameEl=document.getElementById('biz-name');
+  const name=(nameEl?.value||'').trim();
+  const color=document.getElementById('biz-color')?.value||'#1a73e8';
+  const errEl=document.getElementById('biz-error');
+  const okEl=document.getElementById('biz-success');
+  if(errEl) errEl.textContent='';
+  if(okEl) okEl.style.display='none';
+  if(!name){if(errEl)errEl.textContent='Outlet name is required.';return;}
+  if(errEl) errEl.textContent='Creating...';
+  try{
+    const ref=await addDoc(collection(db,'businesses'),{name,color,createdAt:Date.now()});
+    console.log('Outlet saved to Firestore id:',ref.id,name,color);
+    console.log('Outlet created:',ref.id);
+    if(errEl) errEl.textContent='';
+    if(okEl){okEl.style.display='block';okEl.textContent='✓ Outlet "'+name+'" created!';}
+    if(nameEl) nameEl.value='';
+    document.querySelectorAll('.color-opt').forEach((b,i)=>b.style.border=i===0?'3px solid #0d3b78':'3px solid transparent');
+    if(document.getElementById('biz-color')) document.getElementById('biz-color').value='#1a73e8';
+    await loadOutletList();
+    await loadBizSelects();
+    setTimeout(()=>{if(okEl)okEl.style.display='none';},4000);
+  }catch(e){
+    console.error('createOutlet error:',e);
+    if(errEl) errEl.textContent='Error: '+e.message+' (code: '+e.code+')';
+  }
+};
+
+async function loadOutletList(){
+  const snap=await getDocs(C.businesses());
+  businesses=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name));
+  const list=document.getElementById('biz-list');
+  if(!businesses.length){list.innerHTML='<div class="empty-state" style="padding:16px 0"><p>No outlets yet.</p></div>';return;}
+  list.innerHTML=businesses.map(b=>`
+    <div class="user-row">
+      <div style="width:36px;height:36px;border-radius:50%;background:${b.color||'#1a73e8'};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;color:#fff;font-weight:700;">${(b.name||'?')[0].toUpperCase()}</div>
+      <div style="flex:1;"><div style="font-size:14px;font-weight:600;">${b.name}</div><div style="font-size:12px;color:var(--gray-text);">Color: <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${b.color||'#1a73e8'};vertical-align:middle;"></span></div></div>
+    </div>`).join('');
+}
+
+async function loadBizSelects(){
+  const snap=await getDocs(C.businesses());
+  businesses=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name));
+  const sel=document.getElementById('nu-biz');
+  if(sel) sel.innerHTML='<option value="">— select outlet —</option>'+businesses.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
+}
+
+// ── ADMIN: CREATE USER ──
+window.createUser=async()=>{
+  const name=document.getElementById('nu-name').value.trim();
+  const userId=document.getElementById('nu-userid').value.trim().toLowerCase().replace(/\s+/g,'');
+  const pass=document.getElementById('nu-pass').value;
+  const bizId=document.getElementById('nu-biz').value;
+  const bizName=businesses.find(b=>b.id===bizId)?.name||'';
+  const errEl=document.getElementById('nu-error');
+  const okEl=document.getElementById('nu-success');
+  errEl.textContent=''; okEl.style.display='none';
+  if(!name||!userId||!pass){errEl.textContent='All fields are required.';return;}
+  if(!bizId){errEl.textContent='Please assign this user to an outlet.';return;}
+  if(pass.length<6){errEl.textContent='Password must be at least 6 characters.';return;}
+  if(userId===ADMIN_USERID){errEl.textContent='That User ID is reserved.';return;}
+  if(!/^[a-z0-9_]+$/.test(userId)){errEl.textContent='User ID: letters, numbers, underscore only.';return;}
+  errEl.textContent='Checking...';
+  const existing=await getDocs(query(C.usernames(),where('userId','==',userId)));
+  if(!existing.empty){errEl.textContent='User ID already taken.';return;}
+  errEl.textContent='Creating...';
+  const email=userId+'@creditmanagement.app';
+  try{
+    const cred=await createUserWithEmailAndPassword(auth2,email,pass);
+    await updateProfile(cred.user,{displayName:name});
+    const bizColor=businesses.find(b=>b.id===bizId)?.color||'#1a73e8';
+    await setDoc(doc(db,'usernames',userId),{userId,email,name,bizId,bizName,bizColor,createdAt:Date.now()});
+    await setDoc(doc(db,'appUsers',cred.user.uid),{name,userId,bizId,bizName,bizColor,role:'user',createdAt:Date.now()});
+    await fbSignOut(auth2);
+    errEl.textContent='';
+    okEl.style.display='block';
+    okEl.textContent=`✓ User "${userId}" created and assigned to ${bizName}!`;
+    document.getElementById('nu-name').value='';
+    document.getElementById('nu-userid').value='';
+    document.getElementById('nu-pass').value='';
+    document.getElementById('nu-biz').value='';
+    loadUserList();
+    setTimeout(()=>okEl.style.display='none',4000);
+  }catch(e){
+    errEl.textContent=e.code==='auth/email-already-in-use'?'User ID already registered.':'Error: '+e.message;
+  }
+};
+
+async function loadUserList(){
+  const list=document.getElementById('user-list');
+  try{
+    const snap=await getDocs(C.appUsers());
+    const users=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+    if(!users.length){list.innerHTML='<div class="empty-state" style="padding:16px 0"><p>No users yet.</p></div>';return;}
+    list.innerHTML=users.map(u=>`
+      <div class="user-row">
+        <div class="avatar" style="width:36px;height:36px;font-size:13px;">${(u.name||'?')[0].toUpperCase()}</div>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:600;">${u.name}</div>
+          <div style="font-size:12px;color:var(--gray-text);">ID: <strong>${u.userId||'—'}</strong>${u.bizName?` · <span style='display:inline-block;width:10px;height:10px;border-radius:50%;background:${businesses.find(b=>b.id===u.bizId)?.color||'#aaa'};vertical-align:middle;margin-right:2px;'></span>${u.bizName}`:' · <em>No outlet assigned</em>'}</div>
+        </div>
+        <button class="btn red" style="font-size:11px;padding:4px 8px;" onclick="removeUser('${u.id}','${u.userId}','${u.name.replace(/'/g,"\\'")}')">Remove</button>
+      </div>`).join('');
+  }catch(e){ list.innerHTML='<div class="err-msg" style="padding:12px;">Error: '+e.message+'</div>'; }
+}
+
+window.removeUser=async(uid,userId,name)=>{
+  if(!confirm(`Remove user "${name}" (${userId})? They will no longer be able to log in.`))return;
+  try{
+    await deleteDoc(doc(db,'appUsers',uid));
+    await deleteDoc(doc(db,'usernames',userId));
+    loadUserList();
+  }catch(e){alert('Error: '+e.message);}
+};
+
+window.switchAdminTab=(tab,el)=>{
+  document.querySelectorAll('.section-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  ['users','outlets','reports','settings'].forEach(t=>{
+    const el=document.getElementById('admin-'+t);
+    if(el) el.style.display=t===tab?'block':'none';
+  });
+  if(tab==='reports') renderReports();
+  if(tab==='outlets') loadOutletList();
+  if(tab==='settings') populateMsgTemplate();
+};
+
+// ── UI ──
+function updateSub(){
+  const t=customers.reduce((s,c)=>s+bal(c.id),0);
+  document.getElementById('header-sub')?.remove();
+  document.getElementById('header-biz').textContent=(isAdmin?'All Outlets':currentBizName||'')+' · '+customers.length+' customers · Owed: '+fmt(t);
+}
+
+window.showTab=(id,el)=>{
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('sec-'+id).classList.add('active');
+  el.classList.add('active');
+  if(id==='add-credit'||id==='payment') refreshSelects();
+  if(id==='share') renderShare();
+  if(id==='admin'){ renderReports(); loadUserList(); loadOutletList(); loadBizSelects(); }
+};
+
+// ── CUSTOMERS ──
+window.renderCustomers=(filter='')=>{
+  const list=document.getElementById('customer-list');
+  const q=filter.toLowerCase().trim();
+  const now=new Date();
+  const isPast10th=settings.overdue&&now.getDate()>10;
+  const currentMonthStart=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);
+
+  const cust=q?customers.filter(c=>
+    c.name.toLowerCase().includes(q)||
+    (c.nickname||'').toLowerCase().includes(q)||
+    (c.phone||'').replace(/\D/g,'').includes(q.replace(/\D/g,''))
+  ):customers;
+
+  if(!cust.length){
+    list.innerHTML=`<div class="empty-state"><div class="empty-icon">👥</div><p>${q?'No results for "'+q+'"':'No customers yet. Tap + to add one.'}</p></div>`;
+    return;
+  }
+
+  list.innerHTML=cust.map(c=>{
+    const b=bal(c.id);
+    const n=transactions.filter(t=>t.cid===c.id).length;
+    const isAlert=!!c.alert;
+    const paymentsThisMonth=transactions.filter(t=>t.cid===c.id&&t.type==='payment'&&t.date>=currentMonthStart).reduce((s,t)=>s+t.amount,0);
+    const balBeforeMonth=transactions.filter(t=>t.cid===c.id&&t.date<currentMonthStart).reduce((s,t)=>s+(t.type==='credit'?t.amount:-t.amount),0);
+    const isOverdue=isPast10th&&b>0&&balBeforeMonth>0&&paymentsThisMonth<balBeforeMonth;
+
+    let cardStyle='padding:14px;';
+    if(isAlert) cardStyle+='background:#fff5f5;border:2px solid #fca5a5;';
+    else if(isOverdue) cardStyle+='background:#fff5f5;border:2px solid var(--red);';
+
+    return `<div class="card" style="${cardStyle}">
+      ${isAlert?'<div class="alert-banner">🚫 NO CREDIT — Alert active</div>':''}
+      ${isOverdue&&!isAlert?'<div class="overdue-banner">⚠️ Overdue — previous month not settled</div>':''}
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="avatar" style="${isAlert?'background:var(--red-light);color:var(--red);':isOverdue?'background:var(--red-light);color:var(--red);':''}">${ini(c.name)}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:600;">${c.name}${c.nickname?` <span class="badge nickname">${c.nickname}</span>`:''}</div>
+          <div style="font-size:12px;color:var(--gray-text);">${c.phone||'No phone'} · ${n} txn${n!==1?'s':''}</div>
+        </div>
+        <div class="balance-chip ${b>0?'owed':'clear'}">${fmt(b)}</div>
+      </div>
+      <div class="action-btns">
+        <button class="btn" onclick="viewHistory('${c.id}')">History</button>
+        <button class="btn" onclick="quickCredit('${c.id}')">+ Credit</button>
+        <button class="btn" onclick="quickPay('${c.id}')">✓ Pay</button>
+        ${isAdmin?`<button class="btn" onclick="editCustomer('${c.id}')">✏️ Edit</button>`:''}
+        ${isAdmin?`<button class="btn ${isAlert?'blue':'amber'}" onclick="toggleAlert('${c.id}',${isAlert})">${isAlert?'✅ Clear':'🚫 Alert'}</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+};
+
+window.openNewCustomer=()=>{
+  document.getElementById('nc-modal-title').textContent='New Customer';
+  document.getElementById('nc-save-btn').textContent='Save Customer';
+  ['nc-name','nc-phone','nc-nickname','nc-remarks'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('nc-edit-id').value='';
+  openModal('modal-nc');
+};
+
+window.editCustomer=cid=>{
+  const c=customers.find(x=>x.id===cid);
+  if(!c)return;
+  document.getElementById('nc-modal-title').textContent='Edit Customer';
+  document.getElementById('nc-save-btn').textContent='Update Customer';
+  document.getElementById('nc-name').value=c.name||'';
+  document.getElementById('nc-nickname').value=c.nickname||'';
+  document.getElementById('nc-phone').value=c.phone||'';
+  document.getElementById('nc-remarks').value=c.remarks||'';
+  document.getElementById('nc-edit-id').value=cid;
+  openModal('modal-nc');
+};
+
+window.saveCustomer=async()=>{
+  const name=document.getElementById('nc-name').value.trim();
+  const phone=document.getElementById('nc-phone').value.trim();
+  const nickname=document.getElementById('nc-nickname').value.trim();
+  const remarks=document.getElementById('nc-remarks').value.trim();
+  const editId=document.getElementById('nc-edit-id').value;
+  if(!name){alert('Name is required');return;}
+  if(!phone){alert('Phone number is required');return;}
+  const bizObj=businesses.find(b=>b.id===currentBizId);
+  const data={name,phone,nickname,remarks,bizId:currentBizId||'',bizName:bizObj?.name||'',bizColor:bizObj?.color||''};
+  if(editId){
+    await updateDoc(doc(db,'customers',editId),data);
+  }else{
+    await addDoc(C.customers(),{...data,createdAt:Date.now(),createdBy:currentUserName||currentUserId,alert:false});
+  }
+  closeModal('modal-nc');
+};
+
+window.toggleAlert=async(cid,currentAlert)=>{
+  await updateDoc(doc(db,'customers',cid),{alert:!currentAlert});
+};
+
+function refreshSelects(){
+  ['credit-customer-sel','pay-customer-sel'].forEach(id=>{
+    const s=document.getElementById(id),v=s.value;
+    s.innerHTML='<option value="">— select customer —</option>'+
+      customers.map(c=>`<option value="${c.id}">${c.name}${c.nickname?' ('+c.nickname+')':''}</option>`).join('');
+    if(v) s.value=v;
+  });
+  ['credit-date','pay-date'].forEach(id=>{const e=document.getElementById(id);if(!e.value)e.value=today();});
+}
+
+window.updateCreditBalance=()=>{
+  const cid=document.getElementById('credit-customer-sel').value;
+  const balEl=document.getElementById('credit-current-bal');
+  const warnEl=document.getElementById('credit-alert-warn');
+  if(!cid){balEl.style.display='none';warnEl.style.display='none';return;}
+  const c=customers.find(x=>x.id===cid);
+  warnEl.style.display=c?.alert?'flex':'none';
+  balEl.style.display='block';
+  balEl.textContent='Current balance: '+fmt(bal(cid))+' owed';
+};
+
+window.updatePayBalance=()=>{
+  const cid=document.getElementById('pay-customer-sel').value;
+  const el=document.getElementById('pay-current-bal');
+  if(!cid){el.style.display='none';return;}
+  el.style.display='block';el.textContent='Current balance: '+fmt(bal(cid))+' owed';
+};
+
+window.selectMethod=m=>{
+  selectedMethod=m;
+  ['cash','transfer','qr'].forEach(k=>document.getElementById('pm-'+k).classList.toggle('selected',k===m));
+  document.getElementById('pm-error').style.display='none';
+};
+function resetMethod(){selectedMethod=null;['cash','transfer','qr'].forEach(k=>document.getElementById('pm-'+k).classList.remove('selected'));}
+
+window.submitCredit=async()=>{
+  const cid=document.getElementById('credit-customer-sel').value;
+  const amt=parseFloat(document.getElementById('credit-amount').value);
+  const date=document.getElementById('credit-date').value||today();
+  const remarks=document.getElementById('credit-remarks').value.trim();
+  if(!cid){alert('Select a customer');return;}
+  if(!amt||amt<=0){alert('Enter a valid amount');return;}
+  await addDoc(C.transactions(),{cid,type:'credit',amount:amt,date,remarks,bizId:currentBizId||'',addedBy:currentUserName||currentUserId,addedAt:Date.now()});
+  document.getElementById('credit-amount').value='';
+  document.getElementById('credit-remarks').value='';
+  document.getElementById('credit-current-bal').style.display='none';
+  document.getElementById('credit-alert-warn').style.display='none';
+  showToast('✓ Credit entry added!');
+};
+
+window.submitPayment=async()=>{
+  const cid=document.getElementById('pay-customer-sel').value;
+  const amt=parseFloat(document.getElementById('pay-amount').value);
+  const date=document.getElementById('pay-date').value||today();
+  const remarks=document.getElementById('pay-remarks').value.trim();
+  if(!cid){alert('Select a customer');return;}
+  if(!amt||amt<=0){alert('Enter a valid amount');return;}
+  if(!selectedMethod){document.getElementById('pm-error').style.display='block';return;}
+  await addDoc(C.transactions(),{cid,type:'payment',amount:amt,date,remarks,method:selectedMethod,bizId:currentBizId||'',addedBy:currentUserName||currentUserId,addedAt:Date.now()});
+  document.getElementById('pay-amount').value='';
+  document.getElementById('pay-remarks').value='';
+  document.getElementById('pay-current-bal').style.display='none';
+  resetMethod();
+  showToast('✓ Payment recorded via '+ML[selectedMethod]);
+};
+
+window.quickCredit=cid=>{document.querySelectorAll('.tab')[1].click();setTimeout(()=>{document.getElementById('credit-customer-sel').value=cid;updateCreditBalance();},50);};
+window.quickPay=cid=>{document.querySelectorAll('.tab')[2].click();setTimeout(()=>{document.getElementById('pay-customer-sel').value=cid;updatePayBalance();},50);};
+
+// ── HISTORY ──
+window.viewHistory=cid=>{
+  const c=customers.find(x=>x.id===cid);
+  currentHistCustomer=c;
+  const txns=transactions.filter(t=>t.cid===cid).sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById('hist-name').textContent=c.name;
+  document.getElementById('hist-nickname').textContent=c.nickname?'Nickname: '+c.nickname:'';
+  const rows=txns.length?txns.map(t=>`
+    <div class="txn-row">
+      <div>
+        <span class="badge ${t.type}">${t.type==='credit'?'Credit':'Payment'}</span>
+        ${t.method?`<span class="badge method">${ML[t.method]}</span>`:''}
+        <div class="txn-meta">${t.date} · ${t.addedBy||'—'}</div>
+        ${t.remarks?`<div class="txn-remark">"${t.remarks}"</div>`:''}
+      </div>
+      <div class="txn-amount ${t.type}">${t.type==='credit'?'+':'-'}${fmt(t.amount)}</div>
+    </div>`).join(''):'<div style="padding:24px;text-align:center;color:var(--gray-text)">No transactions yet</div>';
+  document.getElementById('hist-body').innerHTML=`
+    <div style="background:var(--red-light);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:13px;color:var(--gray-text);font-weight:500;">Balance owed</span>
+      <span style="font-size:16px;font-weight:700;color:var(--red);">${fmt(bal(cid))}</span>
+    </div>${rows}`;
+  openModal('modal-hist');
+};
+
+window.exportCustomerPDF=()=>{
+  if(!currentHistCustomer)return;
+  const c=currentHistCustomer;
+  const txns=transactions.filter(t=>t.cid===c.id).sort((a,b)=>a.date.localeCompare(b.date));
+  let r=0;
+  const rows=txns.map(t=>{
+    r+=t.type==='credit'?t.amount:-t.amount;
+    return `<tr>
+      <td>${t.date}</td><td>${t.type==='credit'?'Credit':'Payment'}</td>
+      <td>${t.method?ML[t.method]:''}</td>
+      <td style="color:${t.type==='credit'?'#d93025':'#1e8e3e'};font-weight:600;">${t.type==='credit'?'+':'-'}${fmt(t.amount)}</td>
+      <td style="font-weight:600;">${fmt(r)}</td>
+      <td style="font-size:11px;color:#5f6368;">${t.addedBy||''}</td>
+      <td style="font-size:11px;font-style:italic;color:#5f6368;">${t.remarks||''}</td>
+    </tr>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Statement - ${c.name}</title>
+  <style>body{font-family:'Segoe UI',sans-serif;padding:28px;max-width:800px;margin:0 auto}
+  h1{font-size:18px;color:#1a73e8;margin-bottom:2px}.sub{font-size:12px;color:#5f6368;margin-bottom:3px}
+  .bal-box{background:#fce8e6;border-radius:8px;padding:10px 14px;margin:14px 0;display:flex;justify-content:space-between;align-items:center}
+  .bal-val{font-size:18px;font-weight:700;color:#d93025}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+  th{background:#1a73e8;color:#fff;padding:6px 9px;text-align:left}
+  td{padding:6px 9px;border-bottom:1px solid #f1f3f4}tr:nth-child(even) td{background:#f8f9fa}
+  .footer{margin-top:20px;font-size:10px;color:#5f6368;text-align:center}
+  </style></head><body>
+  <h1>Customer Statement — ${c.name}${c.nickname?' ('+c.nickname+')':''}</h1>
+  <div class="sub">${c.phone||''}</div>
+  <div class="sub">Generated: ${new Date().toLocaleDateString('en',{day:'numeric',month:'long',year:'numeric'})}</div>
+  <div class="bal-box"><span style="font-size:13px;color:#5f6368;font-weight:500">Outstanding Balance</span><span class="bal-val">${fmt(bal(c.id))}</span></div>
+  ${txns.length?`<table><thead><tr><th>Date</th><th>Type</th><th>Method</th><th>Amount</th><th>Balance</th><th>By</th><th>Remarks</th></tr></thead><tbody>${rows}</tbody></table>`:'<p>No transactions.</p>'}
+  <div class="footer">Credit Management System</div>
+  </body></html>`;
+  const w=window.open('','_blank');w.document.write(html);w.document.close();w.focus();setTimeout(()=>w.print(),500);
+};
+
+// ── REPORTS ──
+window.clearReportFilter=()=>{
+  document.getElementById('report-from').value='';
+  document.getElementById('report-to').value='';
+  renderReports();
+};
+window.clearDateFilter=()=>{
+  const f=document.getElementById('report-from');
+  const t=document.getElementById('report-to');
+  if(f)f.value='';if(t)t.value='';
+  renderReports();
+};
+function renderReports(){
+  const fromVal=document.getElementById('report-from')?.value||'';
+  const toVal=document.getElementById('report-to')?.value||'';
+  const filteredTxns=transactions.filter(t=>{
+    if(fromVal&&t.date<fromVal)return false;
+    if(toVal&&t.date>toVal)return false;
+    return true;
+  });
+  // filteredBal = balance using only date-filtered transactions
+  const filteredBal=id=>filteredTxns.filter(t=>t.cid===id).reduce((s,t)=>s+(t.type==='credit'?t.amount:-t.amount),0);
+  const totalOwed=customers.reduce((s,c)=>s+filteredBal(c.id),0);
+  const owing=customers.filter(c=>filteredBal(c.id)>0).length;
+  const totalPaid=filteredTxns.filter(t=>t.type==='payment').reduce((s,t)=>s+t.amount,0);
+  const bm={cash:0,transfer:0,qr:0};
+  filteredTxns.filter(t=>t.type==='payment'&&t.method).forEach(t=>{bm[t.method]=(bm[t.method]||0)+t.amount;});
+  const grid=document.getElementById('summary-grid');
+  if(!grid)return;
+  grid.innerHTML=`
+    <div class="metric-card"><div class="metric-label">Total customers</div><div class="metric-value">${customers.length}</div></div>
+    <div class="metric-card"><div class="metric-label">Customers owing</div><div class="metric-value" style="color:var(--red)">${owing}</div></div>
+    <div class="metric-card"><div class="metric-label">Outstanding</div><div class="metric-value" style="color:var(--red);font-size:15px">${fmt(totalOwed)}</div></div>
+    <div class="metric-card"><div class="metric-label">Total collected</div><div class="metric-value" style="color:var(--green);font-size:15px">${fmt(totalPaid)}</div></div>
+    <div class="metric-card"><div class="metric-label">💵 Cash</div><div class="metric-value" style="font-size:15px">${fmt(bm.cash)}</div></div>
+    <div class="metric-card"><div class="metric-label">🏦 Transfer</div><div class="metric-value" style="font-size:15px">${fmt(bm.transfer)}</div></div>
+    <div class="metric-card"><div class="metric-label">📲 QR Pay</div><div class="metric-value" style="font-size:15px">${fmt(bm.qr)}</div></div>`;
+  const sorted=[...customers].map(c=>({...c,b:filteredBal(c.id)})).filter(c=>c.b>0).sort((a,z)=>z.b-a.b);
+  const rl=document.getElementById('report-list');
+  if(rl) rl.innerHTML=sorted.length?sorted.map(c=>`
+    <div class="card" style="padding:12px 14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:14px;font-weight:600;">${c.name}${c.nickname?` <span class="badge nickname">${c.nickname}</span>`:''}</div>
+          <div style="font-size:12px;color:var(--gray-text);">${c.phone||'—'}</div>
+        </div>
+        <div class="balance-chip owed">${fmt(c.b)}</div>
+      </div>
+    </div>`).join(''):`<div class="empty-state"><div class="empty-icon">🎉</div><p>All balances clear!</p></div>`;
+}
+
+window.exportExcel=()=>{
+  const rows=[['Customer','Nickname','Phone','Date','Type','Method','Amount (MVR)','Remarks','Running Balance','Recorded By']];
+  customers.forEach(c=>{
+    const txns=transactions.filter(t=>t.cid===c.id).sort((a,b)=>a.date.localeCompare(b.date));
+    let r=0;
+    txns.forEach(t=>{
+      r+=t.type==='credit'?t.amount:-t.amount;
+      rows.push([c.name,c.nickname||'',c.phone||'',t.date,t.type==='credit'?'Credit':'Payment',t.method?ML[t.method]:'',t.amount,t.remarks||'',r.toFixed(2),t.addedBy||'']);
+    });
+    if(!txns.length)rows.push([c.name,c.nickname||'',c.phone||'','','','','','','0.00','']);
+  });
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='credit-report-'+today()+'.csv';a.click();
+};
+
+window.exportPDF=()=>{
+  const bm={cash:0,transfer:0,qr:0};
+  transactions.filter(t=>t.type==='payment'&&t.method).forEach(t=>{bm[t.method]=(bm[t.method]||0)+t.amount;});
+  const totalOwed=customers.reduce((s,c)=>s+bal(c.id),0);
+  const totalPaid=transactions.filter(t=>t.type==='payment').reduce((s,t)=>s+t.amount,0);
+  const owing=[...customers].map(c=>({...c,b:bal(c.id)})).filter(c=>c.b>0).sort((a,z)=>z.b-a.b);
+  const rows=owing.map(c=>`<tr><td>${c.name}${c.nickname?' ('+c.nickname+')':''}</td><td>${c.phone||'—'}</td><td style="text-align:right;color:#d93025;font-weight:600;">${fmt(c.b)}</td></tr>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Credit Report</title>
+  <style>body{font-family:'Segoe UI',sans-serif;padding:28px;max-width:700px;margin:0 auto}
+  h1{font-size:20px;color:#1a73e8;margin-bottom:4px}.sub{font-size:12px;color:#5f6368;margin-bottom:20px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+  .box{border:1px solid #dadce0;border-radius:8px;padding:10px 12px}
+  .box-label{font-size:10px;color:#5f6368;margin-bottom:3px}.box-value{font-size:17px;font-weight:700}
+  .red{color:#d93025}.green{color:#1e8e3e}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{background:#1a73e8;color:#fff;padding:7px 10px;text-align:left}
+  td{padding:7px 10px;border-bottom:1px solid #f1f3f4}tr:nth-child(even) td{background:#f8f9fa}
+  h2{font-size:14px;font-weight:600;margin:20px 0 8px}
+  .footer{margin-top:24px;font-size:10px;color:#5f6368;text-align:center}
+  </style></head><body>
+  <h1>Credit Management Report</h1>
+  <div class="sub">Generated: ${new Date().toLocaleDateString('en',{day:'numeric',month:'long',year:'numeric'})}${currentBizName?' · '+currentBizName:''}</div>
+  <div class="grid">
+    <div class="box"><div class="box-label">Outstanding</div><div class="box-value red">${fmt(totalOwed)}</div></div>
+    <div class="box"><div class="box-label">Collected</div><div class="box-value green">${fmt(totalPaid)}</div></div>
+    <div class="box"><div class="box-label">Customers Owing</div><div class="box-value">${owing.length}</div></div>
+    <div class="box"><div class="box-label">💵 Cash</div><div class="box-value">${fmt(bm.cash)}</div></div>
+    <div class="box"><div class="box-label">🏦 Transfer</div><div class="box-value">${fmt(bm.transfer)}</div></div>
+    <div class="box"><div class="box-label">📲 QR Pay</div><div class="box-value">${fmt(bm.qr)}</div></div>
+  </div>
+  <h2>Outstanding Balances</h2>
+  ${owing.length?`<table><thead><tr><th>Customer</th><th>Phone</th><th>Balance Owed</th></tr></thead><tbody>${rows}</tbody></table>`:'<p>All clear.</p>'}
+  <div class="footer">Credit Management System</div>
+  </body></html>`;
+  const w=window.open('','_blank');w.document.write(html);w.document.close();w.focus();setTimeout(()=>w.print(),500);
+};
+
+// ── SHARE / MESSAGING ──
+function getWeekRange(){
+  const n=new Date(),d=n.getDay(),s=new Date(n);
+  s.setDate(n.getDate()-d);const e=new Date(s);e.setDate(s.getDate()+6);
+  const f=x=>x.toLocaleDateString('en',{day:'numeric',month:'short'});
+  return{end:e,label:f(s)+' – '+f(e)};
+}
+
+function buildMsg(c){
+  const w=getWeekRange();
+  const tmpl=msgTemplate||defaultMsg();
+  return tmpl
+    .replace(/{name}/g,c.name)
+    .replace(/{balance}/g,fmt(bal(c.id)))
+    .replace(/{date}/g,w.end.toLocaleDateString('en',{day:'numeric',month:'long',year:'numeric'}));
+}
+
+function renderShare(){
+  const owing=customers.filter(c=>bal(c.id)>0);
+  const total=owing.reduce((s,c)=>s+bal(c.id),0);
+  document.getElementById('share-preview').textContent=owing.length
+    ?`${owing.length} customer${owing.length>1?'s':''} with outstanding balances.\nTotal owed: ${fmt(total)}`
+    :'No outstanding balances! 🎉';
+  document.getElementById('share-customer-list').innerHTML=owing.length?owing.map(c=>`
+    <div class="card" style="padding:12px 14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div>
+          <div style="font-size:14px;font-weight:600;">${c.name}${c.nickname?` <span class="badge nickname">${c.nickname}</span>`:''}</div>
+          <div style="font-size:12px;color:var(--gray-text);">${c.phone||'No number'}</div>
+        </div>
+        <div class="balance-chip owed">${fmt(bal(c.id))}</div>
+      </div>
+      <button class="btn blue" style="font-size:12px;padding:6px 12px;" onclick="openShareModal('${c.id}')">📤 Send Reminder</button>
+    </div>`).join(''):`<div class="empty-state"><div class="empty-icon">🎉</div><p>All clear!</p></div>`;
+}
+
+window.openShareModal=cid=>{
+  currentShareCustomer=customers.find(x=>x.id===cid);
+  const msg=buildMsg(currentShareCustomer);
+  document.getElementById('share-title').textContent='Remind: '+currentShareCustomer.name;
+  document.getElementById('share-msg-preview').textContent=msg;
+  document.getElementById('copy-ok').style.display='none';
+  const phone=(currentShareCustomer.phone||'').replace(/\D/g,'');
+  const enc=encodeURIComponent(msg);
+  document.getElementById('share-btns-container').innerHTML=[
+    {icon:'📋',label:'Copy',   action:`copyShareMsg()`},
+    {icon:'💬',label:'WhatsApp',action:`window.open('https://wa.me/${phone}?text=${enc}','_blank')`,dis:!phone},
+    {icon:'📲',label:'Viber',  action:`window.open('viber://chat?number=${phone}&text=${enc}','_blank')`,dis:!phone},
+    {icon:'📱',label:'Any App',action:`shareNative()`},
+  ].map(b=>`<button class="share-btn" onclick="${b.action}" ${b.dis?'style="opacity:.4;pointer-events:none"':''}>
+    <span class="s-icon">${b.icon}</span>${b.label}</button>`).join('');
+  openModal('modal-share');
+};
+
+window.copyShareMsg=()=>{
+  if(!currentShareCustomer)return;
+  navigator.clipboard.writeText(buildMsg(currentShareCustomer)).then(()=>{
+    const e=document.getElementById('copy-ok');e.style.display='block';setTimeout(()=>e.style.display='none',2500);
+  }).catch(()=>alert(buildMsg(currentShareCustomer)));
+};
+
+window.shareNative=()=>{
+  if(!currentShareCustomer)return;
+  const msg=buildMsg(currentShareCustomer);
+  if(navigator.share)navigator.share({text:msg}).catch(()=>{});
+  else navigator.clipboard.writeText(msg).then(()=>{
+    const e=document.getElementById('copy-ok');e.style.display='block';setTimeout(()=>e.style.display='none',2500);
+  });
+};
+
+
+// ── TOAST ──
+function showToast(msg,duration=2800){
+  let t=document.getElementById('app-toast');
+  if(!t){
+    t=document.createElement('div');
+    t.id='app-toast';
+    t.style.cssText='position:fixed;bottom:84px;left:50%;transform:translateX(-50%);background:#202124;color:#fff;padding:10px 20px;border-radius:24px;font-size:13px;font-weight:500;z-index:9999;opacity:0;transition:opacity .25s;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.3);';
+    document.body.appendChild(t);
+  }
+  t.textContent=msg;
+  t.style.opacity='1';
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>t.style.opacity='0',duration);
+}
+
+function openModal(id){document.getElementById(id).classList.add('open');}
+window.closeModal=id=>document.getElementById(id).classList.remove('open');
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+// ── TOAST NOTIFICATION ──
+window.showToast=(msg,type='blue')=>{
+  let t=document.getElementById('app-toast');
+  if(!t){
+    t=document.createElement('div');t.id='app-toast';
+    t.style.cssText='position:fixed;bottom:90px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;color:#fff;z-index:999;opacity:0;transition:opacity .3s;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.2);';
+    document.body.appendChild(t);
+  }
+  t.textContent=msg;
+  t.style.background=type==='green'?'#1e8e3e':type==='red'?'#d93025':'#1a73e8';
+  t.style.opacity='1';
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>{t.style.opacity='0';},2800);
+};
+</script>
+</body>
+</html>

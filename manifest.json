@@ -1,0 +1,10 @@
+{
+  "name": "Credit Management",
+  "short_name": "CreditMgmt",
+  "description": "Business credit tracking system",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a73e8",
+  "theme_color": "#1a73e8",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
