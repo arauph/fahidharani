@@ -296,7 +296,7 @@
         <div class="form-group"><label>Full Name *</label><input type="text" id="nu-name" placeholder="User full name"></div>
         <div class="form-group">
           <label>User ID * <span style="font-size:10px;color:var(--gray-text);font-weight:400;">(no spaces, letters/numbers only)</span></label>
-          <input type="text" id="nu-userid" placeholder="e.g. ahmed01" autocapitalize="none" autocorrect="off" spellcheck="false">
+          <input type="text" id="nu-userid" placeholder="Enter user ID" autocapitalize="none" autocorrect="off" spellcheck="false">
         </div>
         <div class="form-group"><label>Password *</label><input type="password" id="nu-pass" placeholder="Min 6 characters"></div>
         <div class="form-group">
@@ -317,7 +317,7 @@
     <div id="admin-outlets" style="display:none;">
       <div class="card">
         <div class="card-title">🏪 Create Outlet</div>
-        <div class="form-group"><label>Outlet Name *</label><input type="text" id="biz-name" placeholder="e.g. Mikado Lounge"></div>
+        <div class="form-group"><label>Outlet Name *</label><input type="text" id="biz-name" placeholder="Enter outlet name"></div>
         <div class="form-group"><label>Outlet Color *</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap;" id="color-picker">
           <button type="button" class="color-opt selected" data-color="#1a73e8" onclick="pickColor(this)" style="background:#1a73e8;width:36px;height:36px;border-radius:50%;border:3px solid #0d3b78;cursor:pointer;" title="Blue"></button>
@@ -370,11 +370,21 @@
         <div class="card-title">✉️ Message Template</div>
         <div class="form-group">
           <label>Default reminder message</label>
-          <div style="font-size:11px;color:var(--gray-text);margin-bottom:6px;">Use <strong>{name}</strong> for customer name, <strong>{balance}</strong> for amount, <strong>{date}</strong> for date.</div>
+          <div style="font-size:11px;color:var(--gray-text);margin-bottom:6px;">Use <strong>{name}</strong> for customer name, <strong>{balance}</strong> for amount, <strong>{date}</strong> for date. Use <strong>{paymentinfo}</strong> to insert your payment details below.</div>
           <textarea id="msg-template" style="min-height:140px;font-size:13px;"></textarea>
         </div>
+        <div class="form-group">
+          <label>Payment Details (shown when {paymentinfo} is used)</label>
+          <textarea id="payment-info" style="min-height:80px;font-size:13px;" placeholder="Account Number: 123456&#10;Account Name: Your Business"></textarea>
+        </div>
         <button class="btn blue full" onclick="saveMsgTemplate()">💾 Save as Default</button>
-        <div class="success-msg" id="msg-template-ok">✓ Message template saved!</div>
+        <div class="success-msg" id="msg-template-ok">✓ Settings saved!</div>
+      </div>
+      <div class="card" style="border-color:#fca5a5;">
+        <div class="card-title" style="color:var(--red);">🗑️ Reset All Data</div>
+        <div style="font-size:13px;color:var(--gray-text);margin-bottom:12px;">Permanently deletes ALL customers and transactions across all outlets. This cannot be undone.</div>
+        <button class="btn red full" onclick="confirmResetData()">Reset All Data</button>
+        <div class="err-msg" id="reset-status"></div>
       </div>
       <div class="card">
         <div class="card-title">⚙️ App Settings</div>
@@ -554,26 +564,31 @@ async function loadSettings(){
       const d=snap.data();
       settings.overdue=d.overdue!==false;
       msgTemplate=d.msgTemplate||defaultMsg();
-    } else { msgTemplate=defaultMsg(); }
+      settings.paymentInfo=d.paymentInfo||'';
+    } else { msgTemplate=defaultMsg(); settings.paymentInfo=''; }
     const tog=document.getElementById('toggle-overdue');
     if(tog){ tog.className='toggle'+(settings.overdue?' on':''); }
   }catch(e){ msgTemplate=defaultMsg(); }
 }
 
 function defaultMsg(){
-  return `Dear {name},\n\nThis is a friendly reminder that you have an outstanding balance of {balance} as of {date}.\n\nPlease settle at your earliest convenience.\n\nAccount Number: 7730000601088\nAccount Name: MIKADO LAUNGE\n\nThank you!\nTeam Mikado`;
+  return `Dear {name},\n\nThis is a friendly reminder that you have an outstanding balance of {balance} as of {date}.\n\nPlease settle at your earliest convenience.\n\nThank you!\nThe Management`;
 }
 
 function populateMsgTemplate(){
   const el=document.getElementById('msg-template');
   if(el) el.value=msgTemplate||defaultMsg();
+  const pi=document.getElementById('payment-info');
+  if(pi) pi.value=settings.paymentInfo||'';
 }
 
 window.saveMsgTemplate=async()=>{
   const val=document.getElementById('msg-template').value.trim();
+  const pi=(document.getElementById('payment-info')?.value||'').trim();
   if(!val)return;
   msgTemplate=val;
-  await setDoc(doc(db,'settings','app'),{msgTemplate:val,overdue:settings.overdue},{merge:true});
+  settings.paymentInfo=pi;
+  await setDoc(doc(db,'settings','app'),{msgTemplate:val,paymentInfo:pi,overdue:settings.overdue},{merge:true});
   const ok=document.getElementById('msg-template-ok');
   ok.style.display='block';setTimeout(()=>ok.style.display='none',3000);
 };
@@ -671,24 +686,27 @@ window.createOutlet=async()=>{
   const color=document.getElementById('biz-color')?.value||'#1a73e8';
   const errEl=document.getElementById('biz-error');
   const okEl=document.getElementById('biz-success');
-  if(errEl) errEl.textContent='';
+  if(errEl){errEl.style.color='var(--red)';errEl.textContent='';}
   if(okEl) okEl.style.display='none';
   if(!name){if(errEl)errEl.textContent='Outlet name is required.';return;}
-  if(errEl) errEl.textContent='Creating...';
+  if(!currentUser){if(errEl)errEl.textContent='Not signed in.';return;}
+  if(errEl) errEl.textContent='Saving...';
   try{
-    const ref=await addDoc(collection(db,'businesses'),{name,color,createdAt:Date.now()});
-    console.log('Outlet saved to Firestore id:',ref.id,name,color);
-    console.log('Outlet created:',ref.id);
+    const newId='outlet_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+    await setDoc(doc(db,'businesses',newId),{
+      name, color, createdAt:Date.now(), createdBy:currentUserId||currentUser.uid
+    });
     if(errEl) errEl.textContent='';
     if(okEl){okEl.style.display='block';okEl.textContent='✓ Outlet "'+name+'" created!';}
     if(nameEl) nameEl.value='';
-    document.querySelectorAll('.color-opt').forEach((b,i)=>b.style.border=i===0?'3px solid #0d3b78':'3px solid transparent');
+    document.querySelectorAll('.color-opt').forEach(b=>b.style.border='3px solid transparent');
+    const first=document.querySelector('.color-opt');if(first)first.style.border='3px solid #0d3b78';
     if(document.getElementById('biz-color')) document.getElementById('biz-color').value='#1a73e8';
     await loadOutletList();
     await loadBizSelects();
     setTimeout(()=>{if(okEl)okEl.style.display='none';},4000);
   }catch(e){
-    console.error('createOutlet error:',e);
+    console.error('createOutlet error:',e.code,e.message);
     if(errEl) errEl.textContent='Error: '+e.message+' (code: '+e.code+')';
   }
 };
@@ -1150,10 +1168,12 @@ function getWeekRange(){
 function buildMsg(c){
   const w=getWeekRange();
   const tmpl=msgTemplate||defaultMsg();
+  const pi=settings.paymentInfo?'\n'+settings.paymentInfo:'';
   return tmpl
     .replace(/{name}/g,c.name)
     .replace(/{balance}/g,fmt(bal(c.id)))
-    .replace(/{date}/g,w.end.toLocaleDateString('en',{day:'numeric',month:'long',year:'numeric'}));
+    .replace(/{date}/g,w.end.toLocaleDateString('en',{day:'numeric',month:'long',year:'numeric'}))
+    .replace(/{paymentinfo}/g,pi.trim());
 }
 
 function renderShare(){
@@ -1224,6 +1244,26 @@ function showToast(msg,duration=2800){
   clearTimeout(t._timer);
   t._timer=setTimeout(()=>t.style.opacity='0',duration);
 }
+
+// ── RESET ALL DATA ──
+window.confirmResetData=async()=>{
+  const statusEl=document.getElementById('reset-status');
+  const confirmed=prompt('Type DELETE to confirm resetting ALL customers and transactions:');
+  if(confirmed!=='DELETE'){if(statusEl)statusEl.textContent='Cancelled.';return;}
+  if(statusEl)statusEl.textContent='Deleting...';
+  try{
+    const [custSnap,txnSnap]=await Promise.all([getDocs(C.customers()),getDocs(C.transactions())]);
+    const delPromises=[
+      ...custSnap.docs.map(d=>deleteDoc(d.ref)),
+      ...txnSnap.docs.map(d=>deleteDoc(d.ref)),
+    ];
+    await Promise.all(delPromises);
+    if(statusEl){statusEl.style.color='var(--green)';statusEl.textContent=`✓ Deleted ${custSnap.size} customers and ${txnSnap.size} transactions.`;}
+    setTimeout(()=>{if(statusEl)statusEl.textContent='';},5000);
+  }catch(e){
+    if(statusEl)statusEl.textContent='Error: '+e.message;
+  }
+};
 
 function openModal(id){document.getElementById(id).classList.add('open');}
 window.closeModal=id=>document.getElementById(id).classList.remove('open');
